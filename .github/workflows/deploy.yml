@@ -1,0 +1,45 @@
+#Version: 1.0.0.0
+
+name: Deploy Site
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow only on the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Check out the repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for accurate sync
+
+      # Step 2: Set up SSH Agent and Add Private Key
+      - name: Start SSH Agent and Add Private Key
+        run: |
+          eval "$(ssh-agent -s)"
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > /tmp/private_key
+          chmod 600 /tmp/private_key
+          ssh-add /tmp/private_key
+
+      # Step 3: Add Server to known_hosts
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
+
+      # Step 4: Deploy WordPress Files to Server
+      - name: Deploy to Server
+        run: |
+          rsync -avz --delete \
+          -e "ssh -i /tmp/private_key -o StrictHostKeyChecking=no" \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='build' \
+          ./ ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:/home/icvgkm9f89uf/public_html/mafarlos.com/
+    env:
+      FTP_PASSWORD: ${{ secrets.REG_FTP_PASSWORD }}
