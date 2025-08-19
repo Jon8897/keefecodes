@@ -1,0 +1,88 @@
+# V1.0.0.0
+
+# Workflow name
+name: CI/CD Pipeline
+
+# Event trigger
+on:
+  push:
+    branches:
+      - live
+
+# Define the jobs
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest  # Runs on the latest Ubuntu environment
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v3  # GitHub action to check out the code from the repo
+        with:
+          fetch-depth: 0  # Fetch all history so we can checkout other branches
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3  # Setup Node.js environment
+        with:
+          node-version: '18.19.1'  # Specify the version of Node.js to use
+
+      - name: Install Dependencies
+        run: npm install  # Install necessary packages from package.json
+
+      - name: Build
+        run: npm run build 
+
+      - name: Dummy Test (no tests defined yet)
+        run: echo "No tests defined" # Optional: Replace with your test command later
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-test  # Ensures this job runs after the build-and-test job
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v3  # Check out the code again in the deploy step
+        with:
+          fetch-depth: 0  # Fetch all history so we can checkout other branches
+
+      - name: Start SSH Agent and Add Private Key
+        run: |
+          eval "$(ssh-agent -s)"  # Start the SSH agent
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > /tmp/private_key && chmod 600 /tmp/private_key  # Save the private key to a file and secure it
+          ssh-add /tmp/private_key  # Add the private key to the SSH agent without needing a passphrase
+
+      - name: Create .ssh directory and add known_hosts
+        run: |
+          mkdir -p ~/.ssh  # Create the .ssh directory if it doesn't exist
+          ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts  # Add the server's SSH fingerprint to known_hosts
+
+      - name: Deploy to appropriate environment
+        run: |
+          git fetch --all
+
+          if [ "${GITHUB_REF##*/}" = "dev" ]; then
+            echo "Pushing changes to GitHub staging branch for testing..."
+            git config --global user.email "jontykeefe8@gmail.com"
+            git config --global user.name "jon8897"
+            git checkout staging
+            git merge dev
+            git push origin staging
+
+          elif [ "${GITHUB_REF##*/}" == "staging" ]; then
+            echo "Staging branch updated for testing... No deployment to server"
+
+          elif [ "${GITHUB_REF##*/}" = "live" ]; then
+            echo "Deploying to the LIVE environment..."
+
+            # Debug: list files to confirm build happened
+            ls -la dist || { echo "ERROR: dist/ directory not found"; exit 1; }
+
+            # Deploy
+            scp -r dist/* ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:/home/icvgkm9f89uf/live
+
+          else
+            echo "Branch not recognized. No deployment performed."
+          fi
+        shell: bash  # Ensure the bash shell is used for multi-line scripts
+
+    env:
+      FTP_PASSWORD: ${{ secrets.REG_FTP_PASSWORD }}  # Set the FTP password from GitHub secrets (if used in SCP)

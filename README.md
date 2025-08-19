@@ -1,128 +1,47 @@
-# ⚡ Vite Pixel Starter Template
+# KeefeCodes Portfolio Website
 
-A production-grade Vite + React + TypeScript + Tailwind CSS starter template built by [Jonathan Keefe](https://github.com/jon8897). Includes clean architecture, reusable UI components, dark mode support, and full GitHub integration.
+Welcome to the GitHub repository for my personal portfolio website, KeefeCodes.com. This site is designed to showcase my skills, projects, and professional journey as a software developer. It features a clean, engaging, and responsive design that ensures a great user experience on all devices.
 
----
+## Features
 
-## 🚀 Features
+- **Responsive Layout**: Ensures optimal viewing across various devices, including desktops, tablets, and mobile phones.
+- **Dynamic Content**: Uses JavaScript for dynamic content generation, enhancing the site's interactivity.
+- **SEO Optimized**: Implements SEO best practices to enhance visibility on search engines.
+- **Project Showcase**: Displays a diverse range of projects that highlight my technical skills and creativity.
+- **Professional Timeline**: Provides a detailed view of my career progression and notable achievements.
 
-- ⚡️ Lightning-fast Vite dev/build setup
-- 🧱 50+ pre-built ShadCN-style UI components
-- 🌗 Dark/light theme context (Tailwind-based)
-- 🧰 ESLint + Prettier pre-configured
-- 📁 Clean folder structure (docs, components, contexts, etc.)
-- ✅ GitHub Actions CI/CD (`.github/workflows/deploy.yml`)
-- 🐛 Issue templates and PR templates ready to go
-- 🔒 Fully documented and secured (see [SECURITY.md](/SECURITY.md))
+## Technologies Used
 
----
+- HTML5
+- CSS3 (Flexbox and Grid)
+- JavaScript (ES6+)
+- Bootstrap 4 for responsive design framework
+- jQuery for DOM manipulation
 
-## 🧠 Tech Stack
+## Overview
 
-- [Vite](https://vitejs.dev/)
-- [React 18](https://reactjs.org/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [ShadCN/UI](https://ui.shadcn.dev/)
-- [ESLint](https://eslint.org/)
-- [Prettier](https://prettier.io/)
+This website serves as my digital portfolio to present to potential employers, clients, and peers. It details my software development expertise and includes a comprehensive showcase of my work and projects.
 
----
+## Viewing the Website
 
-## 🗂️ Project Structure
+You can view the deployed portfolio at [KeefeCodes.com](http://keefecodes.com). This site is best viewed in modern browsers such as Chrome, Firefox, Safari, and Edge.
 
-vite-starter-template/
+## Note
 
-├── public/                        # Static assets
+This repository is meant for display purposes only. The source code is not intended for duplication or personal use without explicit permission from the owner.
 
-├── src/
+## Contact
 
-│   ├── components/ui/             # Reusable UI components
+If you wish to reach out for professional inquiries or potential collaborations, please contact me at:
 
-│   ├── contexts/                  # Theme context
+- Email: admin@keefecodes.com
 
-│   ├── App.tsx                    # App wrapper
+Feel free to connect with me on LinkedIn or follow me on Twitter for updates and more professional content.
 
-│   └── main.tsx                   # Entry point
+## Acknowledgements
 
-├── docs/
+- FontAwesome for icons
+- Unsplash for stock photos
+- Inspiration from various online resources including MDN Web Docs
 
-│   └── architecture.md            # App structure notes
-
-├── .github/
-
-│   ├── ISSUE_TEMPLATE/
-
-│   │   └── bug_report.md          # Issue report template
-
-│   ├── workflows/deploy.yml       # GitHub Actions workflow
-
-│   └── PULL_REQUEST_TEMPLATE.md   # Pull request template
-
-├── tailwind.config.ts
-
-├── vite.config.ts
-
-└── tsconfig.json
-
-```
-
-## 🛠️ Getting Started
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Start development server
-npm run dev
-
-# 3. Build for production
-npm run build
-
-# 4. Preview production build
-npm run preview
-
-```
-
----
-
-## 📦 Available Scripts
-
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Start local development server |
-| `npm run build` | Build production-ready assets |
-| `npm run preview` | Serve built project locally |
-| `npm run lint` | Run ESLint for code quality |
-| `npm run format` | Format code via Prettier |
-
----
-
-## 🧾 Documentation
-
-- 📚 [Architecture Overview](/docs/architecture.md)
-- 🐞 [Bug Report Template](/.github/ISSUE_TEMPLATE/bug_report.md)
-- 🔃 [Pull Request Template](/.github/PULL_REQUEST_TEMPLATE.md)
-- 🛡️ [Security Policy](/SECURITY.md)
-- 👨‍👩‍👧 [Code of Conduct](/CODE_OF_CONDUCT.md)
-
----
-
-## 🔐 Security
-
-If you discover a vulnerability, please follow the instructions in [SECURITY.md](/SECURITY.md) to report it.
-
----
-
-## 🤝 Contributing
-
-Pull requests and issues are welcome! Please review our [Code of Conduct](/CODE_OF_CONDUCT.md) and open a GitHub issue before submitting significant changes.
-
----
-
-## 📄 License
-
-This project is open source and available under the [MIT License](/LICENSE).
-
-
-Built with ❤️ by [Jonathan Keefe](https://github.com/jon8897)
+Thank you for visiting my portfolio website repository!
