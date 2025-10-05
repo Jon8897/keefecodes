@@ -35,9 +35,17 @@ const ProjectsPage = () => {
       github: "https://github.com/Jon8897/cybersecurity-portfolio",
       live: "",
     },
+    {
+      title: "WP Deployment Suite",
+      category: "DevOps Tools",
+      description: "Automated WordPress deployment toolkit to sync Live ↔ Dev environments, manage backups, and monitor changes.",
+      tech: ["Bash", "MySQL", "WP-CLI", "PHP"],
+      github: "https://github.com/Jon8897/wp-deployment-suite", 
+      live: "",
+    },
   ];
 
-  const categories = ["All", "Web Games", "Cyber Labs"];
+  const categories = ["All", "Web Games", "Cyber Labs", "DevOps Tools"];
 
   const openModal = (url: string) => setIframeUrl(url);
   const closeModal = () => setIframeUrl(null);
