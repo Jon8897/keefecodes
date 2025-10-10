@@ -10,8 +10,14 @@ interface PageLayoutProps {
 
 const PageLayout = ({ children, showParticles = true }: PageLayoutProps) => {
   return (
-    <div className="min-h-screen relative">
-      {showParticles && <ParticlesBackground />}
+    <div className="min-h-screen relative overflow-hidden">
+      {showParticles && (
+        <div className="absolute inset-0 z-0">
+          <ParticlesBackground />
+        </div>
+      )}
+
+      {/* Foreground layer */}
       <div className="relative z-10">
         <Navigation />
         {children}
