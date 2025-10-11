@@ -1,0 +1,33 @@
+# V1.0.0.0
+name: KeefeCodes Auto Release Tag
+
+on:
+  push:
+    branches:
+      - live
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Version Tag
+        id: tag
+        run: |
+          VERSION="v$(date +'%Y.%m.%d-%H%M')"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          git tag $VERSION
+          git push origin $VERSION
+          echo "Created tag $VERSION"
+
+      - name: Notify Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.KEEFECODES_DEVOPS_BOT }}
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d '{
+            "content": "New production release tag created: '${{ env.VERSION }}'"
+          }' $WEBHOOK_URL

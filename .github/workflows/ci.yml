@@ -1,88 +1,132 @@
-# V1.0.0.0
+# V1.0.0.1
+name: CI/CD DevSecOps Pipeline
 
-# Workflow name
-name: CI/CD Pipeline
-
-# Event trigger
 on:
   push:
     branches:
+      - dev
       - live
 
-# Define the jobs
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest  # Runs on the latest Ubuntu environment
+    name: Build & Test
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3  # GitHub action to check out the code from the repo
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          fetch-depth: 0  # Fetch all history so we can checkout other branches
+          node-version: '21.5.0'
 
-      - name: Use Node.js
-        uses: actions/setup-node@v3  # Setup Node.js environment
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (code quality check)
+        run: npm run lint --if-present
+
+      - name: Build project
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          node-version: '18.19.1'  # Specify the version of Node.js to use
+          name: dist
+          path: dist/
 
-      - name: Install Dependencies
-        run: npm install  # Install necessary packages from package.json
+  security-scan:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Build
-        run: npm run build 
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Dummy Test (no tests defined yet)
-        run: echo "No tests defined" # Optional: Replace with your test command later
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate || true
 
   deploy:
+    name: Deploy to Server
     runs-on: ubuntu-latest
-    needs: build-and-test  # Ensures this job runs after the build-and-test job
+    needs: [build-and-test, security-scan]
 
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3  # Check out the code again in the deploy step
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
         with:
-          fetch-depth: 0  # Fetch all history so we can checkout other branches
+          name: dist
+          path: dist
 
-      - name: Start SSH Agent and Add Private Key
+      - name: Setup SSH
         run: |
-          eval "$(ssh-agent -s)"  # Start the SSH agent
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > /tmp/private_key && chmod 600 /tmp/private_key  # Save the private key to a file and secure it
-          ssh-add /tmp/private_key  # Add the private key to the SSH agent without needing a passphrase
+          eval "$(ssh-agent -s)"
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh-add /tmp/deploy_key
 
-      - name: Create .ssh directory and add known_hosts
+      - name: Add known hosts
         run: |
-          mkdir -p ~/.ssh  # Create the .ssh directory if it doesn't exist
-          ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts  # Add the server's SSH fingerprint to known_hosts
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to appropriate environment
+      - name: Determine environment and deploy
         run: |
-          git fetch --all
+          BRANCH=${GITHUB_REF##*/}
+          echo "Deploying branch: $BRANCH"
 
-          if [ "${GITHUB_REF##*/}" = "dev" ]; then
-            echo "Pushing changes to GitHub staging branch for testing..."
-            git config --global user.email "jontykeefe8@gmail.com"
-            git config --global user.name "jon8897"
-            git checkout staging
-            git merge dev
-            git push origin staging
-
-          elif [ "${GITHUB_REF##*/}" == "staging" ]; then
-            echo "Staging branch updated for testing... No deployment to server"
-
-          elif [ "${GITHUB_REF##*/}" = "live" ]; then
-            echo "Deploying to the LIVE environment..."
-
-            # Debug: list files to confirm build happened
-            ls -la dist || { echo "ERROR: dist/ directory not found"; exit 1; }
-
-            # Deploy
-            scp -r dist/* ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:/home/icvgkm9f89uf/live
-
+          if [ "$BRANCH" == "dev" ]; then
+            TARGET_DIR="/home/${{ secrets.REG_FTP_USERNAME }}/public_html/keefecodes.com/dev"
+          elif [ "$BRANCH" == "live" ]; then
+            TARGET_DIR="/home/${{ secrets.REG_FTP_USERNAME }}/public_html/keefecodes.com/live"
           else
-            echo "Branch not recognized. No deployment performed."
+            echo "Not a deployment branch."
+            exit 0
           fi
-        shell: bash  # Ensure the bash shell is used for multi-line scripts
 
-    env:
-      FTP_PASSWORD: ${{ secrets.REG_FTP_PASSWORD }}  # Set the FTP password from GitHub secrets (if used in SCP)
+          echo "Deploying to $TARGET_DIR ..."
+          scp -r dist/* ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR
+
+  notify:
+    name: Discord Notification
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+
+    steps:
+      - name: Send build/deploy status to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.KEEFECODES_DEVOPS_BOT }}
+          STATUS: ${{ job.status }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          COLOR=0x00FF00
+          STATUS_EMOJI="Success"
+          if [ "$STATUS" != "success" ]; then
+            COLOR=0xFF0000
+            STATUS_EMOJI="Failed"
+          fi
+
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"${STATUS_EMOJI} Deployment $STATUS on branch: $BRANCH\",
+              \"color\": $COLOR,
+              \"fields\": [
+                {\"name\": \"Commit Message\", \"value\": \"$COMMIT_MSG\"},
+                {\"name\": \"Author\", \"value\": \"$COMMIT_AUTHOR\"},
+                {\"name\": \"Environment\", \"value\": \"$BRANCH\"}
+              ],
+              \"footer\": {\"text\": \"KeefeCodes CI/CD • $(date)\"}
+            }]
+          }" $WEBHOOK_URL

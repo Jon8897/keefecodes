@@ -1,0 +1,45 @@
+# V1.0.0.0
+name: KeefeCodes Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Select the branch to deploy"
+        required: true
+        default: "live"
+
+jobs:
+  manual-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Setup SSH
+        run: |
+          eval "$(ssh-agent -s)"
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh-add /tmp/deploy_key
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy manually
+        run: |
+          TARGET_DIR="/home/${{ secrets.REG_FTP_USERNAME }}/public_html/keefecodes.com/${{ github.event.inputs.branch }}"
+          echo "Deploying to $TARGET_DIR"
+          scp -r dist/* ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR
+
+      - name: Notify Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.KEEFECODES_DEVOPS_BOT }}
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d '{
+            "content": "Manual deployment to '${{ github.event.inputs.branch }}' completed successfully."
+          }' $WEBHOOK_URL
