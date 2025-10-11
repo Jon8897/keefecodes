@@ -1,5 +1,5 @@
 # V1.0.0.2
-name: CI/CD DevSecOps Pipeline
+name: Dev-KeefeCodes DevSecOps Pipeline
 
 on:
   push:
