@@ -1,4 +1,4 @@
-# V1.0.0.4
+# V1.0.0.5
 name: KeefeCodes DevSecOps Pipeline
 
 on:
@@ -65,19 +65,22 @@ jobs:
           name: dist
           path: dist
 
-      - name: Setup SSH
+      # Start SSH agent & add private key
+      - name: Start SSH Agent and Add Private Key
         run: |
           eval "$(ssh-agent -s)"
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-          ssh-add /tmp/deploy_key || (echo "SSH key failed to load. Check formatting in GitHub Secrets." && exit 1)
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > /tmp/private_key
+          chmod 600 /tmp/private_key
+          ssh-add /tmp/private_key
 
-      - name: Add known hosts
+      # Add host fingerprint
+      - name: Add server to known_hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Determine environment and deploy
+      # Deploy dist folder via rsync
+      - name: Deploy dist folder via SSH
         run: |
           BRANCH=${GITHUB_REF##*/}
           echo "Deploying branch: $BRANCH"
@@ -87,12 +90,15 @@ jobs:
           elif [ "$BRANCH" == "main" ]; then
             TARGET_DIR="/home/${{ secrets.REG_FTP_USERNAME }}/public_html/keefecodes.com/live"
           else
-            echo "Not a deployment branch."
+            echo "❌ Not a deployment branch."
             exit 0
           fi
 
-          echo "Deploying build files to $TARGET_DIR ..."
-          scp -r dist/* ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR || (echo "❌ Deployment failed. Check server permissions or SSH key." && exit 1)
+          echo "🚀 Deploying dist/ to $TARGET_DIR ..."
+          rsync -avz --delete \
+            -e "ssh -i /tmp/private_key -o StrictHostKeyChecking=no" \
+            ./dist/ ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR \
+            || (echo "❌ Deployment failed. Check permissions or SSH key." && exit 1)
 
   notify:
     name: Discord Notification
@@ -114,7 +120,6 @@ jobs:
           SECURITY_STATUS: ${{ needs.security-scan.result }}
           DEPLOY_STATUS: ${{ needs.deploy.result }}
         run: |
-          # --- Determine overall status ---
           if [[ "$DEPLOY_STATUS" == "success" && "$BUILD_STATUS" == "success" && "$SECURITY_STATUS" == "success" ]]; then
             COLOR=3066993
             STATUS_TEXT="✅ Deployment Succeeded"
@@ -123,17 +128,14 @@ jobs:
             STATUS_TEXT="❌ Deployment Failed"
           fi
 
-          # --- Compose a failure reason summary ---
           FAIL_REASON=""
           [[ "$BUILD_STATUS" != "success" ]] && FAIL_REASON="${FAIL_REASON}❗ Build step failed\n"
           [[ "$SECURITY_STATUS" != "success" ]] && FAIL_REASON="${FAIL_REASON}🧩 Security audit issues detected\n"
           [[ "$DEPLOY_STATUS" != "success" ]] && FAIL_REASON="${FAIL_REASON}🚫 Deployment error\n"
           [[ -z "$FAIL_REASON" ]] && FAIL_REASON="✅ All stages completed successfully"
 
-          # --- Create GitHub run URL ---
           RUN_URL="https://github.com/$REPO/actions/runs/$RUN_ID"
 
-          # --- Send to Discord ---
           curl -H "Content-Type: application/json" \
           -X POST \
           -d "{
