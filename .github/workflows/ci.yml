@@ -92,9 +92,9 @@ jobs:
           echo "🚀 Deploying dist/ to $TARGET_DIR..."
 
           cat > /tmp/ssh_wrapper.sh << 'EOF'
-#!/bin/bash
-ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=QUIET "$@" 2>/dev/null
-EOF
+          #!/bin/bash
+          ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=QUIET "$@" 2>/dev/null
+          EOF
           chmod +x /tmp/ssh_wrapper.sh
 
           rsync -avz --delete \
