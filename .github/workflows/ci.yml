@@ -65,21 +65,16 @@ jobs:
           name: dist
           path: dist
 
-      # Start SSH agent & add private key
-      - name: Start SSH Agent and Add Private Key
+      - name: Write SSH Private Key
         run: |
-          eval "$(ssh-agent -s)"
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > /tmp/private_key
           chmod 600 /tmp/private_key
-          ssh-add /tmp/private_key
 
-      # Add host fingerprint
       - name: Add server to known_hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
 
-      # Deploy dist folder via rsync
       - name: Deploy dist folder via SSH
         run: |
           BRANCH=${GITHUB_REF##*/}
@@ -90,15 +85,15 @@ jobs:
           elif [ "$BRANCH" == "main" ]; then
             TARGET_DIR="/opt/apps/keefecodes/prod"
           else
-            echo "❌ Not a deployment branch."
+            echo "Not a deployment branch."
             exit 0
           fi
 
-          echo "🚀 Deploying dist/ to $TARGET_DIR ..."
+          echo "🚀 Deploying dist/ to $TARGET_DIR..."
           rsync -avz --delete \
-            -e "ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no" \
+            -e "ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes" \
             ./dist/ ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR \
-            || (echo "❌ Deployment failed. Check permissions or SSH key." && exit 1)
+            || (echo "❌ Deployment failed." && exit 1)
 
   notify:
     name: Discord Notification
