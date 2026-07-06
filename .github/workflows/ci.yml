@@ -75,7 +75,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy dist folder via SSH
+- name: Deploy dist folder via SSH
         run: |
           BRANCH=${GITHUB_REF##*/}
           echo "Deploying branch: $BRANCH"
@@ -92,20 +92,15 @@ jobs:
           echo "🚀 Deploying dist/ to $TARGET_DIR..."
 
           cat > /tmp/ssh_wrapper.sh << 'EOF'
-          #!/bin/bash
-          ssh -i /tmp/private_key -p 22 \
-            -o StrictHostKeyChecking=no \
-            -o BatchMode=yes \
-            -o LogLevel=QUIET \
-            "$@" 2>/dev/null
-          EOF
+#!/bin/bash
+ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=QUIET "$@" 2>/dev/null
+EOF
           chmod +x /tmp/ssh_wrapper.sh
 
           rsync -avz --delete \
             -e "/tmp/ssh_wrapper.sh" \
             ./dist/ ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR \
             || (echo "❌ Deployment failed." && exit 1)
-
   notify:
     name: Discord Notification
     runs-on: ubuntu-latest
