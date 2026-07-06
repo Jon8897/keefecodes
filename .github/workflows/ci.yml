@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '21.5.0'
+          node-version: '20.19.5'
 
       - name: Install dependencies
         run: npm ci
@@ -86,9 +86,9 @@ jobs:
           echo "Deploying branch: $BRANCH"
 
           if [ "$BRANCH" == "dev" ]; then
-            TARGET_DIR="/home/${{ secrets.REG_FTP_USERNAME }}/public_html/keefecodes.com/dev"
+            TARGET_DIR="/opt/apps/keefecodes/dev"
           elif [ "$BRANCH" == "main" ]; then
-            TARGET_DIR="/home/${{ secrets.REG_FTP_USERNAME }}/public_html/keefecodes.com/live"
+            TARGET_DIR="/opt/apps/keefecodes/prod"
           else
             echo "❌ Not a deployment branch."
             exit 0
@@ -96,7 +96,7 @@ jobs:
 
           echo "🚀 Deploying dist/ to $TARGET_DIR ..."
           rsync -avz --delete \
-            -e "ssh -i /tmp/private_key -o StrictHostKeyChecking=no" \
+            -e "ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no" \
             ./dist/ ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR \
             || (echo "❌ Deployment failed. Check permissions or SSH key." && exit 1)
 
