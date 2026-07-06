@@ -1,4 +1,4 @@
-# V1.0.0.5
+# V1.0.0.6
 name: KeefeCodes DevSecOps Pipeline
 
 on:
@@ -11,7 +11,6 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,6 +25,7 @@ jobs:
 
       - name: Lint (code quality check)
         run: npm run lint --if-present || true
+
       - name: Build project
         run: npm run build
 
@@ -39,7 +39,6 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-latest
     needs: build-and-test
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -48,13 +47,12 @@ jobs:
         run: npm ci
 
       - name: Run npm audit
-        run: npm audit --audit-level=moderate || true 
+        run: npm audit --audit-level=moderate || true
 
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
     needs: [build-and-test, security-scan]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -65,7 +63,7 @@ jobs:
           name: dist
           path: dist
 
-      - name: Write SSH Private Key
+      - name: Write SSH private key
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > /tmp/private_key
           chmod 600 /tmp/private_key
@@ -75,7 +73,10 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy dist folder via SSH
+      - name: Deploy via rsync
+        env:
+          TARGET_HOST: ${{ secrets.REG_HOST }}
+          TARGET_USER: ${{ secrets.REG_FTP_USERNAME }}
         run: |
           BRANCH=${GITHUB_REF##*/}
           echo "Deploying branch: $BRANCH"
@@ -89,27 +90,22 @@ jobs:
             exit 0
           fi
 
-          echo "🚀 Deploying dist/ to $TARGET_DIR..."
+          echo "Deploying dist/ to $TARGET_DIR..."
 
-          cat > /tmp/ssh_wrapper.sh << 'EOF'
-          #!/bin/bash
-          ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=QUIET "$@" 2>/dev/null
-          EOF
-          chmod +x /tmp/ssh_wrapper.sh
+          rsync -avz --delete --checksum \
+            -e "ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=ERROR" \
+            ./dist/ "${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}" \
+            || (echo "Deployment failed." && exit 1)
 
-          rsync -avz --delete \
-            -e "/tmp/ssh_wrapper.sh" \
-            ./dist/ ${{ secrets.REG_FTP_USERNAME }}@${{ secrets.REG_HOST }}:$TARGET_DIR \
-            || (echo "❌ Deployment failed." && exit 1)
-            
+          echo "Deploy complete."
+
   notify:
     name: Discord Notification
     runs-on: ubuntu-latest
     needs: [build-and-test, security-scan, deploy]
     if: always()
-
     steps:
-      - name: Send detailed CI/CD status to Discord
+      - name: Send CI/CD status to Discord
         env:
           WEBHOOK_URL: ${{ secrets.KEEFECODES_DEVOPS_BOT }}
           REPO: ${{ github.repository }}
@@ -138,8 +134,7 @@ jobs:
 
           RUN_URL="https://github.com/$REPO/actions/runs/$RUN_ID"
 
-          curl -H "Content-Type: application/json" \
-          -X POST \
+          curl -s -H "Content-Type: application/json" -X POST \
           -d "{
             \"username\": \"KeefeCodes CI/CD Bot\",
             \"embeds\": [{
@@ -151,11 +146,11 @@ jobs:
                 {\"name\": \"Author\", \"value\": \"$AUTHOR\", \"inline\": true},
                 {\"name\": \"Commit Message\", \"value\": \"$COMMIT_MSG\"},
                 {\"name\": \"Commit Hash\", \"value\": \"[\`${COMMIT_HASH:0:7}\`]($RUN_URL)\"},
-                {\"name\": \"Build Status\", \"value\": \"$BUILD_STATUS\", \"inline\": true},
-                {\"name\": \"Security Scan\", \"value\": \"$SECURITY_STATUS\", \"inline\": true},
-                {\"name\": \"Deployment\", \"value\": \"$DEPLOY_STATUS\", \"inline\": true},
+                {\"name\": \"Build\", \"value\": \"$BUILD_STATUS\", \"inline\": true},
+                {\"name\": \"Security\", \"value\": \"$SECURITY_STATUS\", \"inline\": true},
+                {\"name\": \"Deploy\", \"value\": \"$DEPLOY_STATUS\", \"inline\": true},
                 {\"name\": \"Summary\", \"value\": \"$FAIL_REASON\"}
               ],
-              \"footer\": {\"text\": \"KeefeCodes DevSecOps Pipeline • $(date)\"}
+              \"footer\": {\"text\": \"KeefeCodes DevSecOps Pipeline\"}
             }]
-          }" $WEBHOOK_URL
+          }" "$WEBHOOK_URL"
