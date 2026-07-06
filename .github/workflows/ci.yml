@@ -1,4 +1,4 @@
-# V1.0.0.6
+# V1.0.0.7
 name: KeefeCodes DevSecOps Pipeline
 
 on:
@@ -73,7 +73,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.REG_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy via rsync
+      - name: Deploy via SCP
         env:
           TARGET_HOST: ${{ secrets.REG_HOST }}
           TARGET_USER: ${{ secrets.REG_FTP_USERNAME }}
@@ -90,14 +90,21 @@ jobs:
             exit 0
           fi
 
-          echo "Deploying dist/ to $TARGET_DIR..."
+          echo "Clearing target directory..."
+          ssh -i /tmp/private_key -p 22 \
+            -o StrictHostKeyChecking=no \
+            -o BatchMode=yes \
+            "${TARGET_USER}@${TARGET_HOST}" \
+            "rm -rf ${TARGET_DIR}/* && mkdir -p ${TARGET_DIR}" 2>/dev/null || true
 
-          rsync -avz --delete --checksum \
-            -e "ssh -i /tmp/private_key -p 22 -o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=ERROR" \
-            ./dist/ "${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}" \
-            || (echo "Deployment failed." && exit 1)
-
-          echo "Deploy complete."
+          echo "Uploading files to ${TARGET_DIR}..."
+          scp -i /tmp/private_key -P 22 \
+            -o StrictHostKeyChecking=no \
+            -o BatchMode=yes \
+            -r ./dist/* \
+            "${TARGET_USER}@${TARGET_HOST}:${TARGET_DIR}/" \
+            && echo "✅ Deploy complete." \
+            || (echo "❌ Deployment failed." && exit 1)
 
   notify:
     name: Discord Notification
